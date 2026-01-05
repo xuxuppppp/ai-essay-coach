@@ -7,18 +7,42 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #4a90e2; --bg: #f5f7fa; --text: #333; }
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 300px 1fr 350px; gap: 20px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h2 { border-left: 5px solid var(--primary); padding-left: 10px; font-size: 1.2rem; }
-        textarea { width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 8px; padding: 15px; font-size: 1rem; resize: none; box-sizing: border-box; }
-        .btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px; transition: 0.3s; }
+        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 10px; }
+        
+        h1 { font-size: 1.5rem; margin: 15px 0; }
+
+        /* 核心響應式佈局調整 */
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            display: grid; 
+            grid-template-columns: 300px 1fr 350px; /* 電腦版三欄 */
+            gap: 15px; 
+        }
+
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { border-left: 5px solid var(--primary); padding-left: 10px; font-size: 1.1rem; margin-top: 0; }
+        
+        textarea { width: 100%; height: 300px; border: 1px solid #ddd; border-radius: 8px; padding: 12px; font-size: 1rem; resize: none; box-sizing: border-box; }
+        
+        .btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px; transition: 0.3s; font-size: 1rem; }
         .btn:hover { background: #357abd; }
         .btn-secondary { background: #6c757d; }
+        
         #wordCount { text-align: right; font-size: 0.8rem; color: #666; margin-top: 5px; }
-        .radar-container { width: 100%; height: 250px; }
+        .radar-container { width: 100%; height: 250px; display: flex; justify-content: center; }
         #feedbackArea { font-size: 0.95rem; line-height: 1.6; color: #444; margin-top: 15px; }
-        .loading { display: none; text-align: center; color: var(--primary); font-weight: bold; }
+        .loading { display: none; text-align: center; color: var(--primary); font-weight: bold; margin-top: 10px; }
+
+        /* 手機版樣式微調 (寬度小於 1024px 時觸發) */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr; /* 全部變單欄排列 */
+            }
+            body { padding: 10px; }
+            textarea { height: 250px; } /* 手機輸入區稍微縮短 */
+            h1 { font-size: 1.3rem; }
+        }
     </style>
 </head>
 <body>
@@ -29,8 +53,8 @@
     <div class="card">
         <h2>📌 今日挑戰題目</h2>
         <div id="topicBox">
-            <h3 id="topicTitle">點擊下方按鈕出題</h3>
-            <p id="topicDesc">準備好後，請在中間區域開始撰寫。</p>
+            <h3 id="topicTitle" style="font-size: 1.1rem;">點擊下方按鈕出題</h3>
+            <p id="topicDesc" style="font-size: 0.95rem;">準備好後，請在中間區域開始撰寫。</p>
         </div>
         <button class="btn btn-secondary" onclick="getRandomTopic()">🎲 隨機換一題</button>
     </div>
@@ -40,7 +64,7 @@
         <textarea id="essayInput" placeholder="請在此輸入您的作文內容..."></textarea>
         <div id="wordCount">目前字數：0 字</div>
         <button class="btn" onclick="submitToAI()">🚀 送出 AI 評改</button>
-        <div id="loadingStatus" class="loading">AI 老師正在閱卷中，請稍候...</div>
+        <div id="loadingStatus" class="loading">AI 老師正在閱卷中...</div>
     </div>
 
     <div class="card">
@@ -49,70 +73,35 @@
             <canvas id="scoreChart"></canvas>
         </div>
         <div id="feedbackArea">
-            <p>完成作文並送出後，這裡將顯示詳細的回饋建議。</p>
+            <p>完成作文後送出，此處將顯示 AI 診斷建議。</p>
         </div>
     </div>
 </div>
 
 <script>
-   // --- 1. 寫死題庫獲取功能 (不連動 Make) ---
+    // --- 1. 寫死題庫功能 ---
     async function getRandomTopic() {
-        // 直接在前端建立題庫清單
         const topics = [
-            {
-                year: "113年會考",
-                title: "在這樣的標籤下",
-                description: "生活中有各種標籤，標籤有時是身分，有時是刻板印象。請分享你的觀察與思考。"
-            },
-            {
-                year: "112年會考",
-                title: "不必由我，由我們",
-                description: "有些事一人難成，眾人齊心方成。請寫下你與團隊合作克服挑戰的經驗。"
-            },
-            {
-                year: "111年會考",
-                title: "多做多得？",
-                description: "傳統觀念認為付出愈多收穫愈多，但在現代社會是否依然如此？請論述你的見解。"
-            },
-            {
-                year: "110年會考",
-                title: "未成功的嘗試",
-                description: "人生中並非所有嘗試都能換來成功，但這些過程卻有其意義。請分享你的故事。"
-            },
-            {
-                year: "109年會考",
-                title: "我想開設一家這樣的店",
-                description: "如果可以自創店鋪，你想賣什麼？傳遞什麼理念？請描述你的藍圖。"
-            }
+            { year: "113年會考", title: "在這樣的標籤下", description: "生活中有各種標籤，標籤有時是身分，有時是刻板印象。請分享你的觀察與思考。" },
+            { year: "112年會考", title: "不必由我，由我們", description: "有些事一人難成，眾人齊心方成。請寫下你與團隊合作克服挑戰的經驗。" },
+            { year: "111年會考", title: "多做多得？", description: "傳統觀念認為付出愈多收穫愈多，但在現代社會是否依然如此？請論述你的見解。" },
+            { year: "110年會考", title: "未成功的嘗試", description: "人生中並非所有嘗試都能換來成功，但這些過程卻有其意義。請分享你的故事。" },
+            { year: "109年會考", title: "我想開設一家這樣的店", description: "如果可以自創店鋪，你想賣什麼？傳遞什麼理念？請描述你的藍圖。" }
         ];
         
-        try {
-            document.getElementById('topicTitle').innerText = "正在隨機抽選題目...";
-            
-            // 延遲 0.5 秒模擬雲端讀取感，讓展示更真實
-            setTimeout(() => {
-                const selected = topics[Math.floor(Math.random() * topics.length)];
-                displayTopic(selected);
-            }, 500);
-            
-        } catch (err) {
-            console.error("選題錯誤:", err);
-            document.getElementById('topicTitle').innerText = "選題失敗";
-        }
+        document.getElementById('topicTitle').innerText = "正在隨機抽選題目...";
+        setTimeout(() => {
+            const selected = topics[Math.floor(Math.random() * topics.length)];
+            document.getElementById('topicTitle').innerText = `${selected.title} (${selected.year})`;
+            document.getElementById('topicDesc').innerText = selected.description;
+        }, 500);
     }
 
-    function displayTopic(selected) {
-        document.getElementById('topicTitle').innerText = `${selected.title} (${selected.year})`;
-        document.getElementById('topicDesc').innerText = selected.description;
-    }
-
-    // --- 2. 介面互動功能 ---
-    // 字數統計
+    // --- 2. 介面互動 ---
     document.getElementById('essayInput').addEventListener('input', function() {
         document.getElementById('wordCount').innerText = `目前字數：${this.value.length} 字`;
     });
 
-    // 初始化雷達圖
     let ctx = document.getElementById('scoreChart').getContext('2d');
     let scoreChart = new Chart(ctx, {
         type: 'radar',
@@ -127,27 +116,19 @@
             }]
         },
         options: { 
-            scales: { 
-                r: { 
-                    min: 0, 
-                    max: 6, 
-                    ticks: { stepSize: 1, display: false },
-                    grid: { color: '#ddd' }
-                } 
-            } 
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { r: { min: 0, max: 6, ticks: { display: false } } }
         }
     });
 
-    // --- 3. AI 評改送出功能 ---
+    // --- 3. AI 評改 ---
     async function submitToAI() {
         const essay = document.getElementById('essayInput').value;
         const topic = document.getElementById('topicTitle').innerText;
-        
         if (!essay || essay.length < 10) return alert("請輸入足夠長度的作文再送出！");
 
         document.getElementById('loadingStatus').style.display = 'block';
-
-        // 這是您的評分 Webhook URL
         const gradingWebhookURL = "https://hook.eu2.make.com/fum3xa9brgtrwdu6oy898on7l2saphon"; 
         
         try {
@@ -157,25 +138,16 @@
                 body: JSON.stringify({ topic, essay, student: "體驗者" })
             });
 
-            if (!response.ok) throw new Error("網路請求失敗");
-
             const data = await response.json();
-            
-            // 更新雷達圖
             scoreChart.data.datasets[0].data = [data.score1, data.score2, data.score3, data.score4];
             scoreChart.update();
 
-            // 更新評語區域，確保顯示正向回饋 [cite: 38, 136]
             document.getElementById('feedbackArea').innerHTML = `
-                <div style="font-weight:bold; color:var(--primary); font-size: 1.2rem;">
-                    總級分：${data.totalGrade} 級
-                </div>
-                <hr>
-                <p><strong>AI 老師的建議：</strong></p>
-                <p>${data.feedback}</p>
+                <div style="font-weight:bold; color:var(--primary); font-size: 1.2rem;">總級分：${data.totalGrade} 級</div>
+                <hr><p><strong>AI 老師的建議：</strong></p><p>${data.feedback}</p>
             `;
         } catch (err) {
-            alert("連線失敗，請確保 Make 流程已開啟 (ON) 或點擊了 Run Once。");
+            alert("連線失敗，請確保 Make 流程已開啟 (ON)。");
         } finally {
             document.getElementById('loadingStatus').style.display = 'none';
         }
